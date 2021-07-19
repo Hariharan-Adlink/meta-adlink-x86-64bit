@@ -1,0 +1,383 @@
+diff --git a/recipes-graphics/startupconfig/startupconfig.bb b/recipes-graphics/startupconfig/startupconfig.bb
+index 1667828..f4d7a41 100644
+--- a/recipes-graphics/startupconfig/startupconfig.bb
++++ b/recipes-graphics/startupconfig/startupconfig.bb
+@@ -9,6 +9,7 @@ DEPENDS += " \
+ SRC_URI = "\
+     file://adlinkstartup \
+     file://adlinkstartup.service \
++    file://10-intel.conf\
+ "
+ 
+ inherit pkgconfig systemd update-rc.d useradd
+@@ -26,13 +27,13 @@ USERADD_PARAM_${PN} = "--system -M -d /var/lib/adlink -s /bin/false -g root root
+ 
+ do_install() {
+     install -d "${D}${sysconfdir}/init.d"
++    install -d "${D}/usr/share/X11/xorg.conf.d"
+     install -m 0755 "${WORKDIR}/adlinkstartup" "${D}${sysconfdir}/init.d/adlinkstartup"
+-
++    install -m 0644 "${WORKDIR}/10-intel.conf" "${D}/usr/share/X11/xorg.conf.d/10-intel.conf"
+     if ${@bb.utils.contains("DISTRO_FEATURES", 'systemd', 'true', 'false', d)}; then
+        
+        install -d "${D}${sbindir}"
+        install -m 0755 "${WORKDIR}/adlinkstartup" "${D}${sbindir}/adlinkstartup"       
+-
+        install -d "${D}${systemd_unitdir}/system"
+        install -m 0644 "${WORKDIR}/adlinkstartup.service" "${D}${systemd_unitdir}/system/adlinkstartup.service"
+     fi
+@@ -43,6 +44,7 @@ FILES_${PN} += "\
+     ${datadir}/dbus-1/system-services/com.intel.adlink.Tabrmd.service \
+     ${sbindir}/adlinkstartup \
+     ${systemd_unitdir}/system/adlinkstartup.service \
++    /usr/share/X11/xorg.conf.d/10-intel.conf \
+ "
+ 
+ 
+diff --git a/recipes-image/image/core-image-xfce.bb b/recipes-image/image/core-image-xfce.bb
+index c9616be..100971f 100644
+--- a/recipes-image/image/core-image-xfce.bb
++++ b/recipes-image/image/core-image-xfce.bb
+@@ -23,7 +23,7 @@ IMAGE_INSTALL_append = " garcon sysprof xfce4-screenshooter ristretto xfce4-task
+ IMAGE_INSTALL_remove = "icewm"
+ 
+ ## SEMA applications
+-IMAGE_INSTALL_append = " sema"
++IMAGE_INSTALL_append = " sema4.0"
+ 
+ ## For additional tools/packages
+ IMAGE_INSTALL_append = " libstdc++ kernel-modules kernel-devsrc packagegroup-base alsa-utils packagegroup-core-full-cmdline"
+@@ -64,4 +64,4 @@ IMAGE_INSTALL_append = " devmem2"
+ ## Remove mender
+ INHERIT_remove = "mender-full"
+ 
+-APPEND += "video=eDP-1:d"
++APPEND += "video=eDP-1:d rootwait i915.enable_psr=0 console=ttyS0,115200 console=tty0 irqpoll tpm_tis.interrupts=0"
+diff --git a/recipes-kernel/linux/files/ethernet-5.4.scc b/recipes-kernel/linux/files/ethernet-5.4.scc
+index f0c18ca..cb9f782 100644
+--- a/recipes-kernel/linux/files/ethernet-5.4.scc
++++ b/recipes-kernel/linux/files/ethernet-5.4.scc
+@@ -1,2 +1 @@
+-patch ethernet-5.4/0001-Revert-net-stmmac-Temporary-WA-to-check-TSN-capable.patch
+-patch ethernet-5.4/0001-net-stmmac-Fix-PHY-latency-value-obtained-from-the-c.patch
++patch ethernet-5.4/0001-igc-probe-main-tsn.patch
+diff --git a/recipes-kernel/linux/files/gfx-5.4/0001-drm-i915-Add-Add-Wa_14010685332.patch b/recipes-kernel/linux/files/gfx-5.4/0001-drm-i915-Add-Add-Wa_14010685332.patch
+index faf3d00..b88cdb0 100644
+--- a/recipes-kernel/linux/files/gfx-5.4/0001-drm-i915-Add-Add-Wa_14010685332.patch
++++ b/recipes-kernel/linux/files/gfx-5.4/0001-drm-i915-Add-Add-Wa_14010685332.patch
+@@ -55,6 +55,7 @@ index 9ea51b6c769b..7208c3f70482 100644
+  	} else if (IS_HASWELL(i915) || IS_BROADWELL(i915)) {
+  		hsw_disable_pc8(i915);
+  	}
++}
+ -- 
+ 2.21.0
+ 
+diff --git a/recipes-kernel/linux/files/gfx-5.4/reset_port_sync_mode_state.patch b/recipes-kernel/linux/files/gfx-5.4/reset_port_sync_mode_state.patch
+index 57ba620..267d6e3 100644
+--- a/recipes-kernel/linux/files/gfx-5.4/reset_port_sync_mode_state.patch
++++ b/recipes-kernel/linux/files/gfx-5.4/reset_port_sync_mode_state.patch
+@@ -25,3 +25,4 @@ index 28db23607a26ec2d63da7947dc014d1727694cd1..3e45cf18c30f4247ddd9343d981cc153
+  
+  	memcpy(crtc_state, saved_state, sizeof(*crtc_state));
+  	kfree(saved_state);
++}
+diff --git a/recipes-kernel/linux/files/hdmi_hotplug.cfg b/recipes-kernel/linux/files/hdmi_hotplug.cfg
+index 294c90e..6cbe481 100644
+--- a/recipes-kernel/linux/files/hdmi_hotplug.cfg
++++ b/recipes-kernel/linux/files/hdmi_hotplug.cfg
+@@ -1,2 +1,2 @@
+-CONFIG_DRM_I915_FORCE_PROBE="4571"
++CONFIG_DRM_I915_FORCE_PROBE="9a78"
+ CONFIG_DRM_I915=m
+diff --git a/recipes-kernel/linux/linux-config/bsp/x86/audio.cfg b/recipes-kernel/linux/linux-config/bsp/x86/audio.cfg
+index bc09641..f0e2c94 100644
+--- a/recipes-kernel/linux/linux-config/bsp/x86/audio.cfg
++++ b/recipes-kernel/linux/linux-config/bsp/x86/audio.cfg
+@@ -46,12 +46,12 @@ CONFIG_SND_SOC_INTEL_KBL_DA7219_MAX98357A_MACH=m
+ CONFIG_SND_SOC_INTEL_KBL_DA7219_MAX98927_MACH=m
+ CONFIG_SND_SOC_INTEL_KBL_RT5660_MACH=m
+ CONFIG_SND_SOC_INTEL_KBLR_RT298_MACH=m
+-CONFIG_SND_SOC_INTEL_GLK_RT5682_MAX98357A_MACH=m
++#CONFIG_SND_SOC_INTEL_GLK_RT5682_MAX98357A_MACH=m
+ CONFIG_SND_SOC_INTEL_CNL_RT274_MACH=m
+-CONFIG_SND_SOC_INTEL_EHL_RT5660_MACH=m
++#CONFIG_SND_SOC_INTEL_EHL_RT5660_MACH=m
+ CONFIG_SND_SOC_INTEL_SSP_TEST_MACH=m
+ CONFIG_SND_SOC_INTEL_SKL_HDA_DSP_GENERIC_MACH=m
+-CONFIG_SND_SOC_INTEL_SOF_RT5682_MACH=m
++#CONFIG_SND_SOC_INTEL_SOF_RT5682_MACH=m
+ 
+ CONFIG_SND_SOC_SOF_TOPLEVEL=y
+ CONFIG_SND_SOC_SOF_INTEL_TOPLEVEL=y
+@@ -59,7 +59,7 @@ CONFIG_SND_SOC_SOF_INTEL_PCI=m
+ CONFIG_SND_SOC_SOF=m
+ CONFIG_SND_SOC_SOF_PCI=m
+ CONFIG_SND_SOC_SOF_ACPI=m
+-CONFIG_SND_SOC_SOF_BAYTRAIL_SUPPORT=y
++#CONFIG_SND_SOC_SOF_BAYTRAIL_SUPPORT=y
+ CONFIG_SND_SOC_SOF_MERRIFIELD_SUPPORT=y
+ CONFIG_SND_SOC_SOF_APOLLOLAKE_SUPPORT=y
+ CONFIG_SND_SOC_SOF_GEMINILAKE_SUPPORT=y
+diff --git a/recipes-kernel/linux/linux-config/bsp/x86/console.cfg b/recipes-kernel/linux/linux-config/bsp/x86/console.cfg
+index 6ffff6f..742dc4f 100644
+--- a/recipes-kernel/linux/linux-config/bsp/x86/console.cfg
++++ b/recipes-kernel/linux/linux-config/bsp/x86/console.cfg
+@@ -4,6 +4,6 @@
+ #CONFIG_DUMMY_CONSOLE=y
+ CONFIG_DUMMY_CONSOLE_COLUMNS=80
+ CONFIG_DUMMY_CONSOLE_ROWS=64
+-#CONFIG_FRAMEBUFFER_CONSOLE=y
++CONFIG_FRAMEBUFFER_CONSOLE=y
+ #CONFIG_FRAMEBUFFER_CONSOLE_DETECT_PRIMARY=y
+ # CONFIG_FRAMEBUFFER_CONSOLE_ROTATION is not set
+diff --git a/recipes-kernel/linux/linux-config/bsp/x86/defconfig b/recipes-kernel/linux/linux-config/bsp/x86/defconfig
+index ac6cd30..a15307b 100644
+--- a/recipes-kernel/linux/linux-config/bsp/x86/defconfig
++++ b/recipes-kernel/linux/linux-config/bsp/x86/defconfig
+@@ -1884,6 +1884,7 @@ CONFIG_NET_VENDOR_ALTEON=y
+ # CONFIG_ALTERA_TSE is not set
+ CONFIG_NET_VENDOR_AMAZON=y
+ # CONFIG_ENA_ETHERNET is not set
++CONFIG_ENA_ETHERNET=m
+ CONFIG_NET_VENDOR_AMD=y
+ # CONFIG_AMD8111_ETH is not set
+ CONFIG_PCNET32=m
+@@ -2040,6 +2041,7 @@ CONFIG_NET_VENDOR_SMSC=y
+ # CONFIG_SMSC9420 is not set
+ CONFIG_NET_VENDOR_STMICRO=y
+ # CONFIG_STMMAC_ETH is not set
++CONFIG_STMMAC_ETH=y
+ CONFIG_NET_VENDOR_SUN=y
+ # CONFIG_HAPPYMEAL is not set
+ # CONFIG_SUNGEM is not set
+@@ -2546,10 +2548,20 @@ CONFIG_SERIAL_8250=y
+ CONFIG_SERIAL_8250_DEPRECATED_OPTIONS=y
+ CONFIG_SERIAL_8250_PNP=y
+ # CONFIG_SERIAL_8250_FINTEK is not set
++CONFIG_SERIAL_8250_FINTEK=y
+ CONFIG_SERIAL_8250_CONSOLE=y
+ CONFIG_SERIAL_8250_DMA=y
+ CONFIG_SERIAL_8250_PCI=y
+ CONFIG_SERIAL_8250_EXAR=y
++#UART_PROBLEM
++CONFIG_SERIAL_8250_CS=m
++CONFIG_SERIAL_8250_MEN_MCB=m
++CONFIG_SERIAL_8250_EXTENDED=y
++CONFIG_SERIAL_8250_MANY_PORTS=y
++CONFIG_SERIAL_8250_SHARE_IRQ=y
++CONFIG_SERIAL_8250_RSA=y
++CONFIG_SERIAL_8250_DWLIB=y
++CONFIG_SERIAL_8250_RT288X=y
+ CONFIG_SERIAL_8250_NR_UARTS=4
+ CONFIG_SERIAL_8250_RUNTIME_UARTS=4
+ # CONFIG_SERIAL_8250_EXTENDED is not set
+@@ -2566,8 +2578,23 @@ CONFIG_SERIAL_8250_MID=y
+ # CONFIG_SERIAL_MAX3100 is not set
+ # CONFIG_SERIAL_MAX310X is not set
+ # CONFIG_SERIAL_UARTLITE is not set
++CONFIG_SERIAL_UARTLITE=m
+ CONFIG_SERIAL_CORE=y
+ CONFIG_SERIAL_CORE_CONSOLE=y
++#UART_PROBLEM
++CONFIG_SERIAL_KGDB_NMI=y
++CONFIG_SERIAL_MAX3100=m
++CONFIG_SERIAL_MAX310X=y
++CONFIG_SERIAL_JSM=m
++CONFIG_SERIAL_SCCNXP=y
++CONFIG_SERIAL_SCCNXP_CONSOLE=y
++CONFIG_SERIAL_UARTLITE_NR_UARTS=1
++CONFIG_SERIAL_ALTERA_JTAGUART=m
++CONFIG_SERIAL_ALTERA_UART=m
++CONFIG_SERIAL_ALTERA_UART_MAXPORTS=4
++CONFIG_SERIAL_ALTERA_UART_BAUDRATE=115200
++CONFIG_SERIAL_FSL_LPUART=m
++CONFIG_SERIAL_FSL_LINFLEXUART=m
+ # CONFIG_SERIAL_JSM is not set
+ # CONFIG_SERIAL_SCCNXP is not set
+ # CONFIG_SERIAL_SC16IS7XX is not set
+@@ -3863,9 +3890,15 @@ CONFIG_DRM_TTM=m
+ # CONFIG_DRM_NOUVEAU is not set
+ CONFIG_DRM_I915=y
+ # CONFIG_DRM_I915_ALPHA_SUPPORT is not set
++CONFIG_DRM_I915_FORCE_PROBE="9a78"
+ CONFIG_DRM_I915_CAPTURE_ERROR=y
+ CONFIG_DRM_I915_COMPRESS_ERROR=y
+ CONFIG_DRM_I915_USERPTR=y
++CONFIG_DRM_I915_GVT=y
++CONFIG_DRM_I915_GVT_KVMGT=m
++CONFIG_DRM_I915_USERFAULT_AUTOSUSPEND=250
++CONFIG_DRM_I915_SPIN_REQUEST=5
++
+ # CONFIG_DRM_I915_GVT is not set
+ # CONFIG_DRM_VGEM is not set
+ # CONFIG_DRM_VMWGFX is not set
+@@ -4010,6 +4043,8 @@ CONFIG_DUMMY_CONSOLE_COLUMNS=80
+ CONFIG_DUMMY_CONSOLE_ROWS=25
+ CONFIG_FRAMEBUFFER_CONSOLE=y
+ CONFIG_FRAMEBUFFER_CONSOLE_DETECT_PRIMARY=y
++CONFIG_FRAMEBUFFER_CONSOLE_ROTATION=y
++CONFIG_FRAMEBUFFER_CONSOLE_DEFERRED_TAKEOVER=y
+ # CONFIG_FRAMEBUFFER_CONSOLE_ROTATION is not set
+ # CONFIG_LOGO is not set
+ CONFIG_SOUND=y
+@@ -4730,6 +4765,8 @@ CONFIG_MMC=y
+ CONFIG_MMC_BLOCK=y
+ CONFIG_MMC_BLOCK_MINORS=8
+ CONFIG_MMC_BLOCK_BOUNCE=y
++CONFIG_SDIO_UART=m
++CONFIG_GREYBUS_UART=m
+ # CONFIG_SDIO_UART is not set
+ # CONFIG_MMC_TEST is not set
+ 
+@@ -6316,3 +6353,4 @@ CONFIG_ARCH_HAS_SG_CHAIN=y
+ CONFIG_ARCH_HAS_PMEM_API=y
+ CONFIG_ARCH_HAS_MMIO_FLUSH=y
+ CONFIG_SBITMAP=y
++
+diff --git a/recipes-kernel/linux/linux-config/bsp/x86/ethernet.cfg b/recipes-kernel/linux/linux-config/bsp/x86/ethernet.cfg
+index dd24c7a..1aa427d 100644
+--- a/recipes-kernel/linux/linux-config/bsp/x86/ethernet.cfg
++++ b/recipes-kernel/linux/linux-config/bsp/x86/ethernet.cfg
+@@ -32,10 +32,11 @@ CONFIG_PHYLIB=m
+ 
+ # STMICRO
+ CONFIG_NET_VENDOR_STMICRO=y
+-CONFIG_STMMAC_ETH=m
+-CONFIG_STMMAC_PCI=m
+-CONFIG_STMMAC_HWTS=y
+-CONFIG_STMMAC_SELFTESTS=y
++CONFIG_STMMAC_ETH=y
++CONFIG_STMMAC_PCI=y
++CONFIG_STMMAC_PLATFORM=y
++#CONFIG_STMMAC_HWTS=y
++#CONFIG_STMMAC_SELFTESTS=y
+ 
+ # MII PHY device drivers
+ CONFIG_USB_CATC=m
+diff --git a/recipes-kernel/linux/linux-config/bsp/x86/intel-dev.cfg b/recipes-kernel/linux/linux-config/bsp/x86/intel-dev.cfg
+index a00c5bc..0302f0d 100644
+--- a/recipes-kernel/linux/linux-config/bsp/x86/intel-dev.cfg
++++ b/recipes-kernel/linux/linux-config/bsp/x86/intel-dev.cfg
+@@ -6,7 +6,7 @@ CONFIG_CPU_FREQ_GOV_USERSPACE=y
+ # TXE support
+ CONFIG_INTEL_MEI_DAL=m
+ CONFIG_INTEL_MEI_SPD=m
+-CONFIG_INTEL_MEI_HDCP=m
++#CONFIG_INTEL_MEI_HDCP=m
+ 
+ # Sample code
+ CONFIG_SAMPLES=y
+@@ -14,19 +14,36 @@ CONFIG_SAMPLE_DAL_TEST=m
+ 
+ # Graphics support #
+ CONFIG_DRM_I915=m
+-CONFIG_DRM_I915_KMS=y
++#CONFIG_DRM_I915_KMS=y
+ CONFIG_DRM_I915_GVT=y
+ CONFIG_DRM_LOAD_EDID_FIRMWARE=y
+ # CONFIG_FB_INTEL is not set
+ CONFIG_AGP=y
+-CONFIG_DRM_I915_LOW_LEVEL_TRACEPOINTS=y
++#CONFIG_DRM_I915_LOW_LEVEL_TRACEPOINTS=y
+ CONFIG_DRM_VGEM=m
++CONFIG_DRM_VKMS=m
++CONFIG_DRM_VMWGFX=m
++CONFIG_DRM_VMWGFX_FBCON=y
++CONFIG_DRM_GMA500=m
++CONFIG_DRM_GMA600=y
++CONFIG_DRM_GMA3600=y
++CONFIG_DRM_UDL=m
++CONFIG_DRM_AST=m
++CONFIG_DRM_MGAG200=m
++CONFIG_DRM_QXL=m
++CONFIG_DRM_BOCHS=m
++CONFIG_DRM_VIRTIO_GPU=m
++CONFIG_DRM_PANEL=y
+ 
+ # Disable DRM_CIRRUS_QEMU
+ # CONFIG_DRM_CIRRUS_QEMU is not set
+ 
+ # Enabling framebuffer console
+-CONFIG_DRM_I915_FBDEV=y
++#CONFIG_DRM_I915_FBDEV=y
++# drm/i915 Profile Guided Optimisation
++CONFIG_DRM_I915_USERFAULT_AUTOSUSPEND=250
++CONFIG_DRM_I915_SPIN_REQUEST=5
++# end of drm/i915 Profile Guided Optimisation
+ 
+ # Power
+ CONFIG_INTEL_POWERCLAMP=y
+@@ -310,7 +327,7 @@ CONFIG_GPIO_EHL_PSE_PLAT=m
+ 
+ #GVT Support for KVM
+ CONFIG_DRM_I915_GVT_KVMGT=m
+-CONFIG_DRM_I915_GVT_XENGT=y
++#CONFIG_DRM_I915_GVT_XENGT=y
+ 
+ # tty printk
+ CONFIG_TTY_PRINTK=y
+diff --git a/recipes-kernel/linux/linux-config/bsp/x86/yes-tpm.cfg b/recipes-kernel/linux/linux-config/bsp/x86/yes-tpm.cfg
+index fd97032..639fe3b 100644
+--- a/recipes-kernel/linux/linux-config/bsp/x86/yes-tpm.cfg
++++ b/recipes-kernel/linux/linux-config/bsp/x86/yes-tpm.cfg
+@@ -1,5 +1,5 @@
+  # TPM Support
+-CONFIG_TCG_TIS=m
+-CONFIG_TCG_TPM=m
+-CONFIG_HW_RANDOM_TPM=y
+-CONFIG_TCG_CRB=m
++#CONFIG_TCG_TIS=m
++#CONFIG_TCG_TPM=m
++#CONFIG_HW_RANDOM_TPM=y
++#CONFIG_TCG_CRB=m
+diff --git a/recipes-kernel/linux/linux-intel-lts_git.bb b/recipes-kernel/linux/linux-intel-lts_git.bb
+index 64acf7c..1b2e2da 100644
+--- a/recipes-kernel/linux/linux-intel-lts_git.bb
++++ b/recipes-kernel/linux/linux-intel-lts_git.bb
+@@ -1,30 +1,34 @@
+-KERNEL_SRC_URI ?= "git://github.com/intel/linux-intel-lts.git;protocol=https;branch=5.4/yocto;name=machine"
++KERNEL_SRC_URI ?= "git://github.com/intel/linux-intel-lts.git;protocol=https;branch=5.10/yocto;name=machine"
++#KERNEL_SRC_URI ?= "git://github.com/intel/linux-intel-lts.git;protocol=https;branch=5.4/yocto;name=machine"
+ SRC_URI = "${KERNEL_SRC_URI}"
+-SRCREV_machine ?= "698dc049f6493327076986587f9d0016d6f97a20"
+-LINUX_VERSION ?= "5.4"
++#SRCREV_machine ?= "698dc049f6493327076986587f9d0016d6f97a20"
++SRCREV_machine ?= "dc81dbf7c6d7531a7e7afb21c262986039613278"
++#LINUX_VERSION ?= "5.4"
++LINUX_VERSION ?= "5.10"
+ LINUX_KERNEL_TYPE = "lts"
+ KERNEL_PACKAGE_NAME = "${PN}-kernel"
+ 
+ require recipes-kernel/linux/linux-intel-ese.inc
+ 
+-LIC_FILES_CHKSUM = "file://COPYING;md5=bbea815ee2795b2f4230826c0c6b8814"
++#LIC_FILES_CHKSUM = "file://COPYING;md5=bbea815ee2795b2f4230826c0c6b8814"
++LIC_FILES_CHKSUM = "file://COPYING;md5=6bc538ed5bd9a7fc9398086aedcd7e46"
+ 
+ # Optional kernel security harderning that may interfere with debugging
+-SRC_URI_append = " ${@bb.utils.contains('DISTRO_FEATURES', 'hardened', 'file://bsp/${BSP_SUBTYPE}/security.scc', '', d)}"
+-DEPENDS += "${@bb.utils.contains('DISTRO_FEATURES', 'hardened', 'openssl-native', '', d)}"
+-INHIBIT_PACKAGE_STRIP = "${@bb.utils.contains('DISTRO_FEATURES', 'hardened', '1', '0', d)}"
++#SRC_URI_append = " ${@bb.utils.contains('DISTRO_FEATURES', 'hardened', 'file://bsp/${BSP_SUBTYPE}/security.scc', '', d)}"
++#DEPENDS += "${@bb.utils.contains('DISTRO_FEATURES', 'hardened', 'openssl-native', '', d)}"
++#INHIBIT_PACKAGE_STRIP = "${@bb.utils.contains('DISTRO_FEATURES', 'hardened', '1', '0', d)}"
+ 
+ # Programmable Software Engine
+-SRC_URI_append = " file://ishtp-5.4.scc"
++#SRC_URI_append = " file://ishtp-5.4.scc"
+ 
+ # IO patches
+-SRC_URI_append = " file://io-5.4.scc"
++#SRC_URI_append = " file://io-5.4.scc"
+ 
+ # xdp or libbpf patches
+-SRC_URI_append = " file://libbpf-5.4.scc"
++#SRC_URI_append = " file://libbpf-5.4.scc"
+ 
+ # Graphics patch
+-SRC_URI_append = " file://gfx-5.4.scc"
++#SRC_URI_append = " file://gfx-5.4.scc"
+ 
+ # Ethernet patches
+ SRC_URI_append = " file://ethernet-5.4.scc"
